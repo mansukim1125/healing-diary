@@ -1,101 +1,200 @@
-import Image from "next/image";
+'use client';
+
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {Book, Calendar} from "lucide-react";
+import {Button} from "@/components/ui/button";
+import {useCompletion} from "@ai-sdk/react";
+import {Suspense, useEffect, useState} from "react";
+import {makeDiaryPrompt} from "@/app/util/makeDiaryPrompt";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { completion, input, setInput, handleSubmit } = useCompletion({
+    api: '/api/retrospect',
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  const [todayActivities, setTodayActivities] = useState<string>('');
+  const [memorableMoment, setMemorableMoment] = useState<string>('');
+  const [tomorrowHopes, setTomorrowHopes] = useState<string>('');
+
+  useEffect(() => {
+    // 컴포넌트 마운트 시 localStorage에서 메시지 로드
+    const savedMessagesStr = localStorage.getItem('chatMessages');
+    if (savedMessagesStr) {
+      const savedMessages = JSON.parse(savedMessagesStr);
+      if (savedMessages.length) {
+        const prompt = savedMessages.map((message: {
+          todayActivities: string;
+          memorableMoment: string;
+          tomorrowHopes: string;
+          date: Date;
+        }) => {
+          return makeDiaryPrompt(message);
+        });
+        setInput(prompt);
+      }
+    }
+  }, [setInput]);
+
+  const onSubmit = (e) => {
+  //   1. 로컬 스토리지에 Array push.
+  //   2. 저장된 Array 를 streamRetrospect Server Action 으로 전송.
+  //   3.
+    const newInput = input + makeDiaryPrompt({
+      todayActivities,
+      memorableMoment,
+      tomorrowHopes,
+      date: new Date(),
+    });
+
+    setInput(newInput);
+    // localStorage.setItem('chatMessages', JSON.stringify([]))
+
+
+    handleSubmit(e);
+  };
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="text-center text-2xl font-bold">마음 치유 공간</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="diary" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100 rounded-lg">
+            <TabsTrigger value="diary">
+              <Book />
+              일기
+            </TabsTrigger>
+            <TabsTrigger value="timeline">
+              <Calendar />
+              회복 타임라인
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="diary">
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-lg font-semibold mb-4">오늘 하루 기록</h3>
+                <div className="space-y-4">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-2">오늘 어떤 하루를 보내셨나요?</label>
+                      <textarea
+                        className="w-full p-3 border rounded-md h-24 text-base"
+                        placeholder="오늘 있었던 일들을 자유롭게 적어주세요."
+                        value={todayActivities}
+                        onChange={(e) => setTodayActivities(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-2">어떤 순간이 기억에 남나요?</label>
+                      <textarea
+                        className="w-full p-3 border rounded-md h-24 text-base"
+                        placeholder="오늘 좋았던 순간, 잘 해냈던 순간, 혹은 힘들었던 순간들을 떠올려보세요."
+                        value={memorableMoment}
+                        onChange={e => setMemorableMoment(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-2">내일은 어떤 하루를 보내고 싶나요?</label>
+                      <textarea
+                        className="w-full p-3 border rounded-md h-24 text-base"
+                        placeholder="내일 하고 싶은 것들, 기대되는 것들을 적어보세요."
+                        value={tomorrowHopes}
+                        onChange={e => setTomorrowHopes(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-800 mb-2">오늘의 회고</h4>
+                    <p className="text-sm text-blue-600">
+                      오늘 하루를 돌아보며 AI가 작성한 회고와 응원의 메시지가 이 곳에 표시됩니다.
+                      <br/>
+                      {completion}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={onSubmit}>기록 남기기</Button>
+                  </div>
+
+                  <p className="text-sm text-gray-500 mt-2">
+                    기록하신 내용은 자동으로 분석되어 회복 타임라인에 반영됩니다.
+                    당신의 이야기를 있는 그대로 들려주세요.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="timeline">
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-lg font-semibold mb-4">회복 여정</h3>
+                <div className="space-y-6">
+                  <div>
+                    <select>
+                      <option>전체 기간</option>
+                      <option>최근 1주일</option>
+                      <option>최근 1개월</option>
+                      <option>최근 3개월</option>
+                    </select>
+                    <select>
+                      <option>모든 항목</option>
+                      <option>긍정적 순간</option>
+                      <option>감정 기록</option>
+                      <option>활동 기록</option>
+                    </select>
+                  </div>
+
+                  <div className="border rounded-lg p-4">
+                    <div className="space-y-8">
+                      {/* 타임라인 항목 예시 */}
+                      <div className="relative pl-8 border-l-2 border-blue-200">
+                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-400"></div>
+                        <div className="mb-1 text-sm text-gray-500">2024년 12월 22일</div>
+                        <div className="font-medium">친구들과 저녁 먹으며 많이 웃었다</div>
+                        <div className="mt-1 text-sm text-gray-600">
+                          오늘의 긍정적 순간
+                        </div>
+                      </div>
+
+                      <div className="relative pl-8 border-l-2 border-purple-200">
+                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-purple-400"></div>
+                        <div className="mb-1 text-sm text-gray-500">2024년 12월 21일</div>
+                        <div className="font-medium">아침에 일어나서 산책을 했다</div>
+                        <div className="mt-1 text-sm text-gray-600">
+                          활동 기록
+                        </div>
+                      </div>
+
+                      <div className="relative pl-8 border-l-2 border-rose-200">
+                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-rose-400"></div>
+                        <div className="mb-1 text-sm text-gray-500">2024년 12월 20일</div>
+                        <div className="font-medium">사진을 보며 많이 슬펐지만, 책 읽기로 마음을 달랬다</div>
+                        <div className="mt-1 text-sm text-gray-600">
+                          감정 기록
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-2">회복의 패턴</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• 운동이나 산책을 할 때 긍정적인 감정을 많이 느끼시네요</li>
+                      <li>• 친구들과 만날 때 웃음이 많아지고 있어요</li>
+                      <li>• 혼자만의 시간에 책읽기가 위로가 되고 있어요</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }
