@@ -1,18 +1,15 @@
-export function makeDiaryPrompt(param: {
-	todayActivities: string;
-	memorableMoment: string;
-	tomorrowHopes: string;
-	date: Date;
-}) {
-	return `DIARY ENTRY DATE: ${param.date.toISOString()}\n` +
+import {Diary} from "@/app/entity/diary";
+
+export function makeDiaryPrompt(diary: Diary) {
+	return `DIARY ENTRY DATE: ${diary.getDate().toISOString()}\n` +
 		'- What kind of day did you have today?\n' +
-		`  - ${param.todayActivities}\n` +
+		`  - ${diary.getTodayActivities()}\n` +
 		'\n' +
 		'- What moments stand out in your mind?\n' +
-		`  - ${param.memorableMoment}\n` +
+		`  - ${diary.getMemorableMoment()}\n` +
 		'\n' +
 		'- What kind of day do you want to have tomorrow?\n' +
-		`  - ${param.tomorrowHopes}` +
+		`  - ${diary.getTomorrowHopes()}` +
 		'\n' +
 		'\n';
 }

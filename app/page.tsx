@@ -7,6 +7,8 @@ import {Button} from "@/components/ui/button";
 import {useCompletion} from "@ai-sdk/react";
 import {Suspense, useEffect, useState} from "react";
 import {makeDiaryPrompt} from "@/app/util/makeDiaryPrompt";
+import {DiaryService} from "@/app/services/diary/diary.service";
+import {Diary} from "@/app/entity/diary";
 
 export default function Home() {
   const { completion, input, setInput, handleSubmit } = useCompletion({
@@ -17,41 +19,42 @@ export default function Home() {
   const [memorableMoment, setMemorableMoment] = useState<string>('');
   const [tomorrowHopes, setTomorrowHopes] = useState<string>('');
 
+  const [shouldSubmit, setShouldSubmit] = useState<boolean>(false);
+
+  const [diaryService, _] = useState<DiaryService>(new DiaryService());
+
   useEffect(() => {
     // 컴포넌트 마운트 시 localStorage에서 메시지 로드
-    const savedMessagesStr = localStorage.getItem('chatMessages');
-    if (savedMessagesStr) {
-      const savedMessages = JSON.parse(savedMessagesStr);
-      if (savedMessages.length) {
-        const prompt = savedMessages.map((message: {
-          todayActivities: string;
-          memorableMoment: string;
-          tomorrowHopes: string;
-          date: Date;
-        }) => {
-          return makeDiaryPrompt(message);
-        });
-        setInput(prompt);
-      }
-    }
-  }, [setInput]);
+    const previousDiaries = diaryService.getPreviousDiaries();
 
-  const onSubmit = (e) => {
-  //   1. 로컬 스토리지에 Array push.
-  //   2. 저장된 Array 를 streamRetrospect Server Action 으로 전송.
-  //   3.
-    const newInput = input + makeDiaryPrompt({
+    const previousDiaryPrompt = previousDiaries.reduce((prompt, diary) => {
+      return prompt + makeDiaryPrompt(diary);
+    }, '');
+
+    setInput(previousDiaryPrompt);
+  }, [diaryService, setInput]);
+
+  useEffect(() => {
+    if (shouldSubmit) {
+      handleSubmit();
+      setShouldSubmit(false);
+    }
+  }, [handleSubmit, input, shouldSubmit]);
+
+  const onSubmit = async (e) => {
+    const diary = Diary.of({
       todayActivities,
       memorableMoment,
       tomorrowHopes,
       date: new Date(),
     });
 
-    setInput(newInput);
-    // localStorage.setItem('chatMessages', JSON.stringify([]))
+    diaryService.addDiary(diary);
 
-
-    handleSubmit(e);
+    setInput(prevState => {
+      return prevState + makeDiaryPrompt(diary);
+    });
+    setShouldSubmit(true);
   };
 
   return (
