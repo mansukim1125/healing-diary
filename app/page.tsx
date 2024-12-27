@@ -9,10 +9,25 @@ import {Suspense, useEffect, useState} from "react";
 import {makeDiaryPrompt} from "@/app/util/makeDiaryPrompt";
 import {DiaryService} from "@/app/services/diary/diary.service";
 import {Diary} from "@/app/entity/diary";
+import { experimental_useObject as useObject } from 'ai/react'
 
 export default function Home() {
   const { completion, input, setInput, handleSubmit } = useCompletion({
     api: '/api/retrospect',
+  });
+
+  const [diaryService, _] = useState<DiaryService>(new DiaryService());
+  const [timelineService, _] = useState<TimelineService>(new TimelineService());
+
+  const [timeline, setTimeline] = useState([]);
+
+  const { object: timelineObject, submit: timelineSubmit } = useObject({
+    api: '/api/timeline',
+    schema,
+    async onFinish(object) {
+      setTimeline([...timeline, object]);
+      timelineService.addTimeline(object);
+    },
   });
 
   const [todayActivities, setTodayActivities] = useState<string>('');
@@ -20,8 +35,6 @@ export default function Home() {
   const [tomorrowHopes, setTomorrowHopes] = useState<string>('');
 
   const [shouldSubmit, setShouldSubmit] = useState<boolean>(false);
-
-  const [diaryService, _] = useState<DiaryService>(new DiaryService());
 
   useEffect(() => {
     // 컴포넌트 마운트 시 localStorage에서 메시지 로드
@@ -35,8 +48,15 @@ export default function Home() {
   }, [diaryService, setInput]);
 
   useEffect(() => {
+    const previousTimeline = timelineService.getTimeline();
+
+    setTimeline(previousTimeline);
+  }, []);
+
+  useEffect(() => {
     if (shouldSubmit) {
       handleSubmit();
+      timelineSubmit({ diary });
       setShouldSubmit(false);
     }
   }, [handleSubmit, input, shouldSubmit]);
@@ -154,33 +174,37 @@ export default function Home() {
 
                   <div className="border rounded-lg p-4">
                     <div className="space-y-8">
-                      {/* 타임라인 항목 예시 */}
-                      <div className="relative pl-8 border-l-2 border-blue-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 22일</div>
-                        <div className="font-medium">친구들과 저녁 먹으며 많이 웃었다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          오늘의 긍정적 순간
-                        </div>
-                      </div>
+                      {timeline.map(tl => {
+                        return (
+                          <div key={tl.date} className="relative pl-8 border-l-2 border-blue-200">
+                            <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-400"></div>
+                            <div className="mb-1 text-sm text-gray-500">2024년 12월 22일</div>
+                            <div className="font-medium">친구들과 저녁 먹으며 많이 웃었다</div>
+                            <div className="mt-1 text-sm text-gray-600">
+                              오늘의 긍정적 순간
+                            </div>
+                          </div>
+                        );
+                      })}
 
-                      <div className="relative pl-8 border-l-2 border-purple-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-purple-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 21일</div>
-                        <div className="font-medium">아침에 일어나서 산책을 했다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          활동 기록
-                        </div>
-                      </div>
 
-                      <div className="relative pl-8 border-l-2 border-rose-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-rose-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 20일</div>
-                        <div className="font-medium">사진을 보며 많이 슬펐지만, 책 읽기로 마음을 달랬다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          감정 기록
-                        </div>
-                      </div>
+                      {/*<div className="relative pl-8 border-l-2 border-purple-200">*/}
+                      {/*  <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-purple-400"></div>*/}
+                      {/*  <div className="mb-1 text-sm text-gray-500">2024년 12월 21일</div>*/}
+                      {/*  <div className="font-medium">아침에 일어나서 산책을 했다</div>*/}
+                      {/*  <div className="mt-1 text-sm text-gray-600">*/}
+                      {/*  활동 기록*/}
+                      {/*  </div>*/}
+                      {/*</div>*/}
+
+                      {/*<div className="relative pl-8 border-l-2 border-rose-200">*/}
+                      {/*  <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-rose-400"></div>*/}
+                      {/*  <div className="mb-1 text-sm text-gray-500">2024년 12월 20일</div>*/}
+                      {/*  <div className="font-medium">사진을 보며 많이 슬펐지만, 책 읽기로 마음을 달랬다</div>*/}
+                      {/*  <div className="mt-1 text-sm text-gray-600">*/}
+                      {/*    감정 기록*/}
+                      {/*  </div>*/}
+                      {/*</div>*/}
                     </div>
                   </div>
 
