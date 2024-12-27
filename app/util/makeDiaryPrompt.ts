@@ -1,6 +1,6 @@
-import {Diary} from "@/app/entity/diary";
+import {DiaryEntity} from "@/app/model/diary/diary.entity";
 
-export function makeDiaryPrompt(diary: Diary) {
+export function makeDiaryPrompt(diary: DiaryEntity) {
 	return `DIARY ENTRY DATE: ${diary.getDate().toISOString()}\n` +
 		'- What kind of day did you have today?\n' +
 		`  - ${diary.getTodayActivities()}\n` +

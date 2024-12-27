@@ -1,34 +1,33 @@
-import {Diary} from "@/app/entity/diary";
+import {DiaryEntity} from "@/app/model/diary/diary.entity";
 
 export class DiaryService {
-	private _diaries: Diary[];
+	private diaries: DiaryEntity[];
 
 	constructor() {
-		this._diaries = [];
+		this.diaries = [];
 	}
 
-	public getPreviousDiaries(): Diary[] {
+	public getPreviousDiaries(): DiaryEntity[] {
 		const savedDiariesStr = localStorage.getItem('diaries');
 		if (!savedDiariesStr) return [];
 
 		const parsedDiaries = JSON.parse(savedDiariesStr);
-		this._diaries = parsedDiaries.map((diary) =>
-			Diary.of({
-				todayActivities: diary._todayActivities,
-				memorableMoment: diary._memorableMoment,
-				tomorrowHopes: diary._tomorrowHopes,
-				date: new Date(diary._date),
-			}));
+		this.diaries = parsedDiaries.map((diary) =>
+			DiaryEntity.of(diary));
 
-		return this._diaries;
+		return this.diaries;
 	}
 
-	public addDiary(diary: Diary) {
-		this._diaries = [...this._diaries, diary];
+	public addDiary(diary: DiaryEntity) {
+		this.diaries = [...this.diaries, diary];
 		this.persist();
 	}
 
+	public getRecentDiary(): DiaryEntity | undefined {
+		return this.diaries.slice(-1).at(0);
+	}
+
 	private persist() {
-		localStorage.setItem('diaries', JSON.stringify(this._diaries));
+		localStorage.setItem('diaries', JSON.stringify(this.diaries));
 	}
 }
