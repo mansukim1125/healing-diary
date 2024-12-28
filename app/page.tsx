@@ -156,7 +156,7 @@ export default function Home() {
     }
   }, [disableSubmitBtn, diaryService, memorableMoment, setInput, todayActivities, tomorrowHopes]);
 
-  const onSubmit = async (e) => {
+  const onSubmit = async () => {
     setDisableSubmitBtn(true);
   };
 
