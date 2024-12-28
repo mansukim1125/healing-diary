@@ -1,13 +1,9 @@
 import {streamText} from "ai";
-import { createOpenAI } from '@ai-sdk/openai';
 import {makeDiarySystemPrompt} from "@/app/util/makeDiarySystemPrompt";
-
-const openai = createOpenAI();
+import {openai} from "@/app/common/openai";
 
 export async function POST(req: Request) {
 	const {prompt} = await req.json();
-
-	console.log(prompt);
 
 	const result = streamText({
 		model: openai('gpt-4o'),

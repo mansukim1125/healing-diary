@@ -5,23 +5,69 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Book, Calendar} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {useCompletion} from "@ai-sdk/react";
-import {Suspense, useEffect, useState} from "react";
+import {useEffect, useState} from "react";
 import {makeDiaryPrompt} from "@/app/util/makeDiaryPrompt";
 import {DiaryService} from "@/app/services/diary/diary.service";
-import {Diary} from "@/app/entity/diary";
+import {DiaryEntity} from "@/app/model/diary/diary.entity";
+import { experimental_useObject as useObject } from 'ai/react'
+import {dailyTimelineSchema} from "@/app/model/daily-timeline/daily-timeline.schema";
+import {DailyTimelineEntity} from "@/app/model/daily-timeline/daily-timeline.entity";
+import {DailyTimelineService} from "@/app/services/daily-timeline/daily-timeline.service";
+import PositiveMoment from "@/app/components/timeline/positive-moment.component";
+import ActivityRecord from "@/app/components/timeline/activity-record.component";
+import EmotionalRecord from "@/app/components/timeline/emotional-record.component";
+import {z} from "zod";
 
 export default function Home() {
   const { completion, input, setInput, handleSubmit } = useCompletion({
     api: '/api/retrospect',
   });
 
+  const [diaryService, ] = useState<DiaryService>(new DiaryService());
+  const [timelineService, ] = useState<DailyTimelineService>(new DailyTimelineService());
+
+  const [dailyTimeline, setDailyTimeline] = useState<DailyTimelineEntity[]>([]);
+
+  const {object: emotionalPatternObj, submit: emotionalPatternSubmit} = useObject({
+    api: '/api/emotional_pattern',
+    schema: z.object({
+      emotionalPattern: z.array(z.string()).min(2).max(5),
+    }),
+    async onFinish({ object, error }) {
+      console.log('onFinish', object, error);
+      if (!object || error) {
+        return;
+      }
+      console.log('emotional_pattern', object.emotionalPattern);
+      localStorage.setItem('emotional_pattern', JSON.stringify(object.emotionalPattern));
+    },
+  })
+
+  const { submit: timelineSubmit } = useObject({
+    api: '/api/timeline',
+    schema: dailyTimelineSchema,
+    async onFinish({ object, error }) {
+      if (!object || error) {
+      //   TODO: throw error..
+        return;
+      }
+      console.log('object: ', object);
+      const newTimeline = DailyTimelineEntity.of({...object, date: new Date().toISOString()});
+      console.log('newTimeline: ', newTimeline);
+      setDailyTimeline(prevState => [newTimeline, ...prevState]);
+      timelineService.addTimeline(newTimeline);
+
+      emotionalPatternSubmit({ recentTimeline: timelineService.getRecentTimeline({ days: 7 }) })
+    },
+  });
+
   const [todayActivities, setTodayActivities] = useState<string>('');
   const [memorableMoment, setMemorableMoment] = useState<string>('');
   const [tomorrowHopes, setTomorrowHopes] = useState<string>('');
 
-  const [shouldSubmit, setShouldSubmit] = useState<boolean>(false);
+  const [_, setEmotionalPattern] = useState<string[]>([]);
 
-  const [diaryService, _] = useState<DiaryService>(new DiaryService());
+  const [shouldSubmit, setShouldSubmit] = useState<boolean>(false);
 
   useEffect(() => {
     // 컴포넌트 마운트 시 localStorage에서 메시지 로드
@@ -35,14 +81,31 @@ export default function Home() {
   }, [diaryService, setInput]);
 
   useEffect(() => {
+    const previousTimeline = timelineService.getTimeline();
+
+    setDailyTimeline(previousTimeline);
+  }, [timelineService]);
+
+  useEffect(() => {
+    const previousEmotionalPatternStr = localStorage.getItem('emotional_pattern');
+    console.log(previousEmotionalPatternStr);
+    const previousEmotionalPattern = JSON.parse(previousEmotionalPatternStr || '[]');
+    setEmotionalPattern(previousEmotionalPattern);
+  }, []);
+
+  useEffect(() => {
     if (shouldSubmit) {
       handleSubmit();
+      const recentDiary = diaryService.getRecentDiary();
+      if (recentDiary) {
+        timelineSubmit({ diary: makeDiaryPrompt(recentDiary) });
+      }
       setShouldSubmit(false);
     }
-  }, [handleSubmit, input, shouldSubmit]);
+  }, [diaryService, handleSubmit, input, shouldSubmit, timelineSubmit]);
 
   const onSubmit = async (e) => {
-    const diary = Diary.of({
+    const diary = DiaryEntity.of({
       todayActivities,
       memorableMoment,
       tomorrowHopes,
@@ -113,9 +176,7 @@ export default function Home() {
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                     <h4 className="font-medium text-blue-800 mb-2">오늘의 회고</h4>
                     <p className="text-sm text-blue-600">
-                      오늘 하루를 돌아보며 AI가 작성한 회고와 응원의 메시지가 이 곳에 표시됩니다.
-                      <br/>
-                      {completion}
+                      {completion ? completion : '오늘 하루를 돌아보며 AI가 작성한 회고와 응원의 메시지가 이 곳에 표시됩니다.'}
                     </p>
                   </div>
 
@@ -154,42 +215,39 @@ export default function Home() {
 
                   <div className="border rounded-lg p-4">
                     <div className="space-y-8">
-                      {/* 타임라인 항목 예시 */}
-                      <div className="relative pl-8 border-l-2 border-blue-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 22일</div>
-                        <div className="font-medium">친구들과 저녁 먹으며 많이 웃었다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          오늘의 긍정적 순간
-                        </div>
-                      </div>
-
-                      <div className="relative pl-8 border-l-2 border-purple-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-purple-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 21일</div>
-                        <div className="font-medium">아침에 일어나서 산책을 했다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          활동 기록
-                        </div>
-                      </div>
-
-                      <div className="relative pl-8 border-l-2 border-rose-200">
-                        <div className="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-rose-400"></div>
-                        <div className="mb-1 text-sm text-gray-500">2024년 12월 20일</div>
-                        <div className="font-medium">사진을 보며 많이 슬펐지만, 책 읽기로 마음을 달랬다</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          감정 기록
-                        </div>
-                      </div>
+                      {dailyTimeline.map(daily => {
+                        const date = daily.getDate();
+                        return (
+                          [(() => {
+                            return (
+                              <p key={date.getTime()}>{`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`}</p>
+                            )
+                          })(), daily.getTimeline().map(timeline => {
+                            if (timeline.getType() === 'positive_moment') {
+                              return <PositiveMoment timeline={timeline} key={`${date.getTime()}-${timeline.getType()}`}/>
+                            } else if (timeline.getType() === 'activity_record') {
+                              return <ActivityRecord timeline={timeline} key={`${date.getTime()}-${timeline.getType()}`}/>
+                            } else {
+                              return <EmotionalRecord timeline={timeline} key={`${date.getTime()}-${timeline.getType()}`}/>
+                            }
+                          })]
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-2">회복의 패턴</h4>
                     <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• 운동이나 산책을 할 때 긍정적인 감정을 많이 느끼시네요</li>
-                      <li>• 친구들과 만날 때 웃음이 많아지고 있어요</li>
-                      <li>• 혼자만의 시간에 책읽기가 위로가 되고 있어요</li>
+                      {emotionalPatternObj ? emotionalPatternObj.emotionalPattern?.map((emotionalPattern, index) => {
+                        return (
+                          <li key={index}>• {emotionalPattern}</li>
+                        )
+                      }) : _.map((emotionalPattern, index) => {
+                        return (
+                          <li key={index}>• {emotionalPattern}</li>
+                        )
+                      })}
                     </ul>
                   </div>
                 </div>
