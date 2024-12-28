@@ -2,7 +2,7 @@
 
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import {Book, Calendar} from "lucide-react";
+import {Book, Calendar, Loader2} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {useCompletion} from "@ai-sdk/react";
 import {useEffect, useState} from "react";
@@ -22,12 +22,22 @@ import {TimelineTypeEnum} from "@/app/model/timeline/timeline-type.enum";
 export default function Home() {
   const { completion, input, setInput, handleSubmit } = useCompletion({
     api: '/api/retrospect',
+    async onFinish() {
+      setGenerationCompleted(prevState => {
+        const newState = [...prevState];
+        newState[0] = true;
+        return newState;
+      });
+    },
   });
 
   const [diaryService, ] = useState<DiaryService>(new DiaryService());
   const [timelineService, ] = useState<DailyTimelineService>(new DailyTimelineService());
 
   const [dailyTimeline, setDailyTimeline] = useState<DailyTimelineEntity[]>([]);
+
+  const [generationCompleted, setGenerationCompleted] = useState<boolean[]>([true, true, true]);
+  const [disableSubmitBtn, setDisableSubmitBtn] = useState<boolean>(false);
 
   const {object: emotionalPatternObj, submit: emotionalPatternSubmit} = useObject({
     api: '/api/emotional_pattern',
@@ -41,6 +51,12 @@ export default function Home() {
       }
       console.log('emotional_pattern', object.emotionalPattern);
       localStorage.setItem('emotional_pattern', JSON.stringify(object.emotionalPattern));
+
+      setGenerationCompleted(prevState => {
+        const newState = [...prevState];
+        newState[2] = true;
+        return newState;
+      })
     },
   })
 
@@ -58,9 +74,22 @@ export default function Home() {
       setDailyTimeline(prevState => [newTimeline, ...prevState]);
       timelineService.addTimeline(newTimeline);
 
+      setGenerationCompleted(prevState => {
+        const newState = [...prevState];
+        newState[1] = true;
+        return newState;
+      })
+
       emotionalPatternSubmit({ recentTimeline: timelineService.getRecentTimeline({ days: 7 }) })
     },
   });
+
+  useEffect(() => {
+    const inComplete = generationCompleted.some(item => !item);
+
+    setDisableSubmitBtn(inComplete);
+
+  }, [generationCompleted]);
 
   const [todayActivities, setTodayActivities] = useState<string>('');
   const [memorableMoment, setMemorableMoment] = useState<string>('');
@@ -109,23 +138,26 @@ export default function Home() {
   }, [diaryService, handleSubmit, input, shouldSubmit, timelineSubmit]);
 
   useEffect(() => {
-    const diary = DiaryEntity.of({
-      todayActivities,
-      memorableMoment,
-      tomorrowHopes,
-      date: new Date(),
-    });
+    if (disableSubmitBtn) {
+      setGenerationCompleted([false, false, false]);
+      const diary = DiaryEntity.of({
+        todayActivities,
+        memorableMoment,
+        tomorrowHopes,
+        date: new Date(),
+      });
 
-    diaryService.addDiary(diary);
+      diaryService.addDiary(diary);
 
-    setInput(prevState => {
-      return prevState + makeDiaryPrompt(diary);
-    });
-    setShouldSubmit(true);
-  }, [diaryService, memorableMoment, setInput, submitBtnDisabled, todayActivities, tomorrowHopes]);
+      setInput(prevState => {
+        return prevState + makeDiaryPrompt(diary);
+      });
+      setShouldSubmit(true);
+    }
+  }, [disableSubmitBtn, diaryService, memorableMoment, setInput, todayActivities, tomorrowHopes]);
 
   const onSubmit = async (e) => {
-    setSubmitBtnDisabled(true);
+    setDisableSubmitBtn(true);
   };
 
   useEffect(() => {
@@ -198,7 +230,10 @@ export default function Home() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={onSubmit}>기록 남기기</Button>
+                    <Button onClick={onSubmit} disabled={disableSubmitBtn}>
+                      기록 남기기
+                      {disableSubmitBtn ? <Loader2 className="animate-spin"></Loader2> : ""}
+                    </Button>
                   </div>
 
                   <p className="text-sm text-gray-500 mt-2">
