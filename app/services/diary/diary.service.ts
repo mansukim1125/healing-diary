@@ -12,7 +12,7 @@ export class DiaryService {
 		if (!savedDiariesStr) return [];
 
 		const parsedDiaries = JSON.parse(savedDiariesStr);
-		this.diaries = parsedDiaries.map((diary) =>
+		this.diaries = parsedDiaries.map((diary: { todayActivities: string; memorableMoment: string; tomorrowHopes: string; date: Date; }) =>
 			DiaryEntity.of(diary));
 
 		return this.diaries;
