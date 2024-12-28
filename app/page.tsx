@@ -17,6 +17,7 @@ import PositiveMoment from "@/app/components/timeline/positive-moment.component"
 import ActivityRecord from "@/app/components/timeline/activity-record.component";
 import EmotionalRecord from "@/app/components/timeline/emotional-record.component";
 import {z} from "zod";
+import {TimelineTypeEnum} from "@/app/model/timeline/timeline-type.enum";
 
 export default function Home() {
   const { completion, input, setInput, handleSubmit } = useCompletion({
@@ -69,6 +70,9 @@ export default function Home() {
 
   const [shouldSubmit, setShouldSubmit] = useState<boolean>(false);
 
+  const [periodSelect, setPeriodSelect] = useState<string>();
+  const [typeSelect, setTypeSelect] = useState<string>();
+
   useEffect(() => {
     // 컴포넌트 마운트 시 localStorage에서 메시지 로드
     const previousDiaries = diaryService.getPreviousDiaries();
@@ -104,7 +108,7 @@ export default function Home() {
     }
   }, [diaryService, handleSubmit, input, shouldSubmit, timelineSubmit]);
 
-  const onSubmit = async (e) => {
+  useEffect(() => {
     const diary = DiaryEntity.of({
       todayActivities,
       memorableMoment,
@@ -118,7 +122,20 @@ export default function Home() {
       return prevState + makeDiaryPrompt(diary);
     });
     setShouldSubmit(true);
+  }, [diaryService, memorableMoment, setInput, submitBtnDisabled, todayActivities, tomorrowHopes]);
+
+  const onSubmit = async (e) => {
+    setSubmitBtnDisabled(true);
   };
+
+  useEffect(() => {
+    const filtered = timelineService.getTimelineByPeriodAndType({
+      period: periodSelect ? Number(periodSelect) : undefined,
+      type: typeSelect as TimelineTypeEnum,
+    });
+
+    setDailyTimeline(filtered);
+  }, [periodSelect, timelineService, typeSelect]);
 
   return (
     <Card className="w-full">
@@ -199,17 +216,17 @@ export default function Home() {
                 <h3 className="text-lg font-semibold mb-4">회복 여정</h3>
                 <div className="space-y-6">
                   <div>
-                    <select>
-                      <option>전체 기간</option>
-                      <option>최근 1주일</option>
-                      <option>최근 1개월</option>
-                      <option>최근 3개월</option>
+                    <select onChange={(e) => setPeriodSelect(e.target.value)} value={periodSelect}>
+                      <option value="">전체 기간</option>
+                      <option value='7'>최근 1주일</option>
+                      <option value="30">최근 1개월</option>
+                      <option value="90">최근 3개월</option>
                     </select>
-                    <select>
-                      <option>모든 항목</option>
-                      <option>긍정적 순간</option>
-                      <option>감정 기록</option>
-                      <option>활동 기록</option>
+                    <select onChange={(e) => setTypeSelect(e.target.value)} value={typeSelect}>
+                      <option value="">모든 항목</option>
+                      <option value="positive_moment">긍정적 순간</option>
+                      <option value="activity_record">감정 기록</option>
+                      <option value="emotional_record">활동 기록</option>
                     </select>
                   </div>
 
